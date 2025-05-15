@@ -7,13 +7,18 @@ ST3_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/mai
 
 # --- LOAD DATA ---
 @st.cache_data
-
 def load_data():
     df = pd.read_csv(ST3_URL, header=None)
 
-    df.columns = [
-        "Year", "Month", "Date", "Label", "Name", "Unused1", "Type", "Value"
-    ]
+    st.write("🔍 Detected column count:", df.shape[1])
+
+    if df.shape[1] == 8:
+        df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Type", "Value"]
+    elif df.shape[1] == 7:
+        df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Value"]
+    else:
+        st.error(f"❌ Unexpected number of columns: {df.shape[1]}")
+        st.stop()
 
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     df['Value'] = pd.to_numeric(df['Value'], errors='coerce')
@@ -22,7 +27,7 @@ def load_data():
     st.dataframe(df.head())
 
     return df
-    
+
 df = load_data()
 
 # --- FILTER TO LAST 24 MONTHS BY DEFAULT ---
@@ -44,8 +49,7 @@ mask = (df['Date'] >= date_range[0]) & (df['Date'] <= date_range[1])
 df_filtered = df[mask]
 
 # --- PIVOT WIDE ---
-df_pivot = df_filtered.pivot(index="Label", columns="Date", values="Value")
-df_pivot = df_pivot.fillna(0)
+df_pivot = df_filtered.pivot(index="Label", columns="Date", values="Value").fillna(0)
 
 # --- GROUPS AND STRUCTURE ---
 section_map = {
