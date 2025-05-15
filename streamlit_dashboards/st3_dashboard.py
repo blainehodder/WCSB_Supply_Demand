@@ -53,14 +53,56 @@ section_map = {
 st.title("WCSB Oil Supply & Disposition Summary")
 st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')}")
 
-# --- RENDER SECTIONS ---
-for section, items in section_map.items():
-    with st.expander(section, expanded=True):
-        subset = df_pivot.loc[df_pivot.index.isin(items)]
-        st.dataframe(subset, use_container_width=True)
+# --- BUILD HTML TABLE ---
+html = """
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    th, td {
+        border: 1px solid #dddddd;
+        padding: 6px;
+        text-align: right;
+    }
+    th {
+        background-color: #f0f0f0;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    .section {
+        background-color: #dce6f1;
+        font-weight: bold;
+        text-align: left;
+    }
+    .label {
+        text-align: left;
+    }
+</style>
+<table>
+"""
 
-# --- PLACEHOLDER FOR FUTURE LINE CHART BUTTON ---
-# Add line charts per label in later version
+# --- HEADERS ---
+dates_sorted = sorted(df_pivot.columns)
+html += "<tr><th class='label'>Category</th>"
+for d in dates_sorted:
+    html += f"<th>{d.strftime('%b %Y')}</th>"
+html += "</tr>"
+
+# --- ROWS ---
+for section, items in section_map.items():
+    html += f"<tr><td class='section' colspan='{len(dates_sorted) + 1}'>{section}</td></tr>"
+    for label in items:
+        html += f"<tr><td class='label'>{label}</td>"
+        for d in dates_sorted:
+            val = df_pivot.loc[label, d] if label in df_pivot.index else 0
+            html += f"<td>{int(val):,}</td>"
+        html += "</tr>"
+
+html += "</table>"
+st.markdown(html, unsafe_allow_html=True)
 
 # --- FOOTER ---
 st.markdown("---")
