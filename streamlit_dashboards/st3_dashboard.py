@@ -8,6 +8,11 @@ ST3_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/mai
 # --- LOAD DATA ---
 @st.cache_data
 def load_data():
+    st.write("Loaded rows:", len(df))
+    st.dataframe(df.head())
+    st.write("Loaded rows:", len(df))
+    st.dataframe(df.head())
+
     df = pd.read_csv(ST3_URL)
     df['Date'] = pd.to_datetime(df['Date'])
     return df
