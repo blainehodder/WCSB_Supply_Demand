@@ -98,7 +98,11 @@ for section, items in section_map.items():
         html += f"<tr><td class='label'>{label}</td>"
         for d in dates_sorted:
             val = df_pivot.loc[label, d] if label in df_pivot.index else 0
-            html += f"<td>{int(val):,}</td>"
+            try:
+                display_val = f"{int(round(val)):,}"
+            except:
+                display_val = "–"
+            html += f"<td>{display_val}</td>"
         html += "</tr>"
 
 html += "</table>"
