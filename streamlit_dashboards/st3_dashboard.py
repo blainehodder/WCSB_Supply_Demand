@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import datetime
 import calendar
 
 # --- CONFIG ---
@@ -29,16 +28,15 @@ def load_data():
 df = load_data()
 
 # --- UNIT TOGGLE ---
-st.sidebar.header("Settings")
-unit_toggle = st.sidebar.radio("Display Units", ["m³/day", "bbl/day"])
+unit_toggle = st.radio("Display Units", ["m³/day", "bbl/day"])
 convert_to_barrels = unit_toggle == "bbl/day"
 
-# --- DATE RANGE SELECTOR ---
+# --- DATE RANGE ---
 max_date = df['Date'].max()
 default_start = max_date - pd.DateOffset(months=23)
 default_end = max_date
 
-date_range = st.sidebar.slider(
+date_range = st.slider(
     "Select date range",
     min_value=df['Date'].min().to_pydatetime(),
     max_value=df['Date'].max().to_pydatetime(),
@@ -46,11 +44,11 @@ date_range = st.sidebar.slider(
     format="%b %Y"
 )
 
+# --- FILTER & NORMALIZE TO DAILY ---
 mask = (df['Date'] >= date_range[0]) & (df['Date'] <= date_range[1])
 df_filtered = df[mask].copy()
 
-# --- NORMALIZE TO DAILY ---
-df_filtered['Days'] = df_filtered['Date'].dt.daysinmonth.replace(0, 30)
+df_filtered['Days'] = df_filtered['Date'].apply(lambda d: calendar.monthrange(d.year, d.month)[1])
 df_filtered['Value'] = df_filtered['Value'] / df_filtered['Days']
 
 if convert_to_barrels:
@@ -103,7 +101,7 @@ row_template = [
     {"type": "data", "label": "TOTAL OIL & EQUIVALENT SUPPLY"},
 ]
 
-# --- RENDER ---
+# --- RENDER TABLE ---
 st.title("WCSB Oil Supply & Disposition Summary")
 st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')} | Units: {unit_toggle}**")
 
