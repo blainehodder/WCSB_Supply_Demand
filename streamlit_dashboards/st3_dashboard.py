@@ -54,20 +54,25 @@ dates_sorted = sorted(df_pivot.columns)
 
 # --- TEMPLATE ---
 row_template = [
+    {"type": "title", "label": "SUPPLY"},
+    {"type": "data", "label": "Opening Inventory"},
     {"type": "title", "label": "Production"},
+    {"type": "title", "label": "Crude Oil Production"},
     {"type": "data", "label": "Crude Oil Light"},
     {"type": "data", "label": "Crude Oil Medium"},
+    {"type": "data", "label": "Crude Oil Heavy"},
     {"type": "data", "label": "Crude Oil Ultra-Heavy"},
     {"type": "data", "label": "Total Crude Oil Production"},
     {"type": "data", "label": "Condensate Production"},
-
     {"type": "title", "label": "Oil Sands Production"},
+    {"type": "title", "label": "Nonupgraded"},
     {"type": "data", "label": "In Situ Production"},
     {"type": "data", "label": "Mined Production"},
     {"type": "data", "label": "Sent for Further Processing"},
-    {"type": "data", "label": "Upgraded Bitumen"},
+    {"type": "data", "label": "Nonupgraded Total"},
+    {"type": "data", "label": "Upgraded Production"},
     {"type": "data", "label": "Total Oil Sands Production"},
-
+    {"type": "data", "label": "Total Production"},
     {"type": "title", "label": "Receipts"},
     {"type": "data", "label": "Pentanes Plus - Plant/Gathering Process"},
     {"type": "data", "label": "Pentanes Plus - Fractionation Yield"},
@@ -76,14 +81,12 @@ row_template = [
     {"type": "data", "label": "Other Alberta Receipts"},
     {"type": "data", "label": "Butanes reported as Crude Oil or Equivalent"},
     {"type": "data", "label": "NGL reported as Crude Oil or Equivalent"},
-
     {"type": "title", "label": "Imports"},
     {"type": "data", "label": "Pentanes Plus"},
     {"type": "data", "label": "Condensates"},
     {"type": "data", "label": "Crude Oil"},
     {"type": "data", "label": "Synthetic Crude Oil"},
     {"type": "data", "label": "Total Imports"},
-
     {"type": "data", "label": "Total Receipts"},
     {"type": "data", "label": "Flare or Waste"},
     {"type": "data", "label": "Fuel"},
