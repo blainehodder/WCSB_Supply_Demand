@@ -12,7 +12,9 @@ def load_data():
 
     st.write("🔍 Detected column count:", df.shape[1])
 
-    if df.shape[1] == 8:
+    if df.shape[1] == 9:
+        df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Unused2", "Type", "Value"]
+    elif df.shape[1] == 8:
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Type", "Value"]
     elif df.shape[1] == 7:
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Value"]
