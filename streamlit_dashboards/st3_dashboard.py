@@ -8,13 +8,13 @@ ST3_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/mai
 # --- LOAD DATA ---
 @st.cache_data
 def load_data():
-    st.write("Loaded rows:", len(df))
-    st.dataframe(df.head())
-    st.write("Loaded rows:", len(df))
-    st.dataframe(df.head())
-
     df = pd.read_csv(ST3_URL)
-    df['Date'] = pd.to_datetime(df['Date'])
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    
+    # DEBUG OUTPUT
+    st.write("✅ Loaded rows:", len(df))
+    st.dataframe(df.head())
+    
     return df
 
 df = load_data()
@@ -102,8 +102,8 @@ for section, items in section_map.items():
     for label in items:
         html += f"<tr><td class='label'>{label}</td>"
         for d in dates_sorted:
-            val = df_pivot.loc[label, d] if label in df_pivot.index else 0
             try:
+                val = df_pivot.loc[label, d]
                 display_val = f"{int(round(val)):,}"
             except:
                 display_val = "–"
