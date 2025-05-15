@@ -57,8 +57,7 @@ st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].s
 for section, items in section_map.items():
     with st.expander(section, expanded=True):
         subset = df_pivot.loc[df_pivot.index.isin(items)]
-        styled = subset.style.format("{:.0f}", na_rep="-").set_table_attributes('class="dataframe" style="font-size:14px"')
-        st.dataframe(styled, use_container_width=True)
+        st.dataframe(subset, use_container_width=True)
 
 # --- PLACEHOLDER FOR FUTURE LINE CHART BUTTON ---
 # Add line charts per label in later version
