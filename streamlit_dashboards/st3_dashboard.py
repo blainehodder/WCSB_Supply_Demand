@@ -1,16 +1,16 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import calendar
 
 # --- CONFIG ---
 ST3_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/main/clean_data/st3/st3_cleaned.csv"
+BARREL_CONVERSION = 6.29287
 
 # --- LOAD DATA ---
 @st.cache_data
 def load_data():
     df = pd.read_csv(ST3_URL, header=None)
-
-    st.write("\U0001F50D Detected column count:", df.shape[1])
 
     if df.shape[1] == 9:
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Unused2", "Type", "Value"]
@@ -19,26 +19,25 @@ def load_data():
     elif df.shape[1] == 7:
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Value"]
     else:
-        st.error(f"\u274C Unexpected number of columns: {df.shape[1]}")
+        st.error(f"Unexpected number of columns: {df.shape[1]}")
         st.stop()
 
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     df['Value'] = pd.to_numeric(df['Value'], errors='coerce')
-
-    st.write("\u2705 Loaded rows:", len(df))
-    st.dataframe(df.head())
-
     return df
 
 df = load_data()
 
-# --- FILTER TO LAST 24 MONTHS BY DEFAULT ---
+# --- UNIT TOGGLE ---
+st.sidebar.header("Settings")
+unit_toggle = st.sidebar.radio("Display Units", ["m³/day", "bbl/day"])
+convert_to_barrels = unit_toggle == "bbl/day"
+
+# --- DATE RANGE SELECTOR ---
 max_date = df['Date'].max()
 default_start = max_date - pd.DateOffset(months=23)
 default_end = max_date
 
-# --- DATE RANGE SELECTOR ---
-st.sidebar.header("Date Range")
 date_range = st.sidebar.slider(
     "Select date range",
     min_value=df['Date'].min().to_pydatetime(),
@@ -48,7 +47,15 @@ date_range = st.sidebar.slider(
 )
 
 mask = (df['Date'] >= date_range[0]) & (df['Date'] <= date_range[1])
-df_filtered = df[mask]
+df_filtered = df[mask].copy()
+
+# --- NORMALIZE TO DAILY ---
+df_filtered['Days'] = df_filtered['Date'].dt.daysinmonth.replace(0, 30)
+df_filtered['Value'] = df_filtered['Value'] / df_filtered['Days']
+
+if convert_to_barrels:
+    df_filtered['Value'] *= BARREL_CONVERSION
+
 df_pivot = df_filtered.pivot(index="Label", columns="Date", values="Value").fillna(0)
 dates_sorted = sorted(df_pivot.columns)
 
@@ -74,8 +81,8 @@ row_template = [
     {"type": "data", "label": "Total Oil Sands Production"},
     {"type": "data", "label": "Total Production"},
     {"type": "title", "label": "Receipts"},
-    {"type": "data", "label": "Pentanes Plus - Plant/Gathering Process"},
-    {"type": "data", "label": "Pentanes Plus - Fractionation Yield"},
+    {"type": "data", "label": "Pentanes Plus  - Plant/Gathering Process"},
+    {"type": "data", "label": "Pentanes Plus  - Fractionation Yield"},
     {"type": "data", "label": "Skim Oil Recovered"},
     {"type": "data", "label": "Waste Plant Receipts"},
     {"type": "data", "label": "Other Alberta Receipts"},
@@ -98,7 +105,7 @@ row_template = [
 
 # --- RENDER ---
 st.title("WCSB Oil Supply & Disposition Summary")
-st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')}")
+st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')} | Units: {unit_toggle}**")
 
 html = """
 <style>
