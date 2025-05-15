@@ -10,7 +10,7 @@ ST3_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/mai
 def load_data():
     df = pd.read_csv(ST3_URL, header=None)
 
-    st.write("🔍 Detected column count:", df.shape[1])
+    st.write("\U0001F50D Detected column count:", df.shape[1])
 
     if df.shape[1] == 9:
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Unused2", "Type", "Value"]
@@ -19,13 +19,13 @@ def load_data():
     elif df.shape[1] == 7:
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Value"]
     else:
-        st.error(f"❌ Unexpected number of columns: {df.shape[1]}")
+        st.error(f"\u274C Unexpected number of columns: {df.shape[1]}")
         st.stop()
 
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     df['Value'] = pd.to_numeric(df['Value'], errors='coerce')
 
-    st.write("✅ Loaded rows:", len(df))
+    st.write("\u2705 Loaded rows:", len(df))
     st.dataframe(df.head())
 
     return df
@@ -49,28 +49,54 @@ date_range = st.sidebar.slider(
 
 mask = (df['Date'] >= date_range[0]) & (df['Date'] <= date_range[1])
 df_filtered = df[mask]
-
-# --- PIVOT WIDE ---
 df_pivot = df_filtered.pivot(index="Label", columns="Date", values="Value").fillna(0)
+dates_sorted = sorted(df_pivot.columns)
 
-# --- GROUPS AND STRUCTURE ---
-section_map = {
-    "Production": [
-        "Crude Oil Light", "Crude Oil Medium", "Crude Oil Heavy",
-        "Condensate Production", "Pentanes Plus", "Upgraded Bitumen",
-        "In Situ Production", "Mined Production"
-    ],
-    "Disposition": [
-        "Deliveries to Upgraders", "Deliveries to Market",
-        "Inventory Change", "Losses"
-    ]
-}
+# --- TEMPLATE ---
+row_template = [
+    {"type": "title", "label": "Production"},
+    {"type": "data", "label": "Crude Oil Light"},
+    {"type": "data", "label": "Crude Oil Medium"},
+    {"type": "data", "label": "Crude Oil Ultra Heavy"},
+    {"type": "data", "label": "Total Crude Oil Production"},
+    {"type": "data", "label": "Condensate Production"},
 
-# --- DISPLAY HEADER ---
+    {"type": "title", "label": "Oil Sands Production"},
+    {"type": "data", "label": "In Situ Production"},
+    {"type": "data", "label": "Mined Production"},
+    {"type": "data", "label": "Sent for Further Processing"},
+    {"type": "data", "label": "Upgraded Bitumen"},
+    {"type": "data", "label": "Total Oil Sands Production"},
+
+    {"type": "title", "label": "Receipts"},
+    {"type": "data", "label": "Pentanes Plus - Plant/Gathering Process"},
+    {"type": "data", "label": "Pentanes Plus - Fractionation Yield"},
+    {"type": "data", "label": "Skim Oil Recovered"},
+    {"type": "data", "label": "Waste Plant Receipts"},
+    {"type": "data", "label": "Other Alberta Receipts"},
+    {"type": "data", "label": "Butanes reported as Crude Oil or Equivalent"},
+    {"type": "data", "label": "NGL reported as Crude Oil or Equivalent"},
+
+    {"type": "title", "label": "Imports"},
+    {"type": "data", "label": "Pentanes Plus"},
+    {"type": "data", "label": "Condensates"},
+    {"type": "data", "label": "Crude Oil"},
+    {"type": "data", "label": "Synthetic Crude Oil"},
+    {"type": "data", "label": "Total Imports"},
+
+    {"type": "data", "label": "Total Receipts"},
+    {"type": "data", "label": "Flare or Waste"},
+    {"type": "data", "label": "Fuel"},
+    {"type": "data", "label": "Shrinkage"},
+    {"type": "data", "label": "Closing Inventory"},
+    {"type": "data", "label": "Adjustments"},
+    {"type": "data", "label": "TOTAL OIL & EQUIVALENT SUPPLY"},
+]
+
+# --- RENDER ---
 st.title("WCSB Oil Supply & Disposition Summary")
 st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')}")
 
-# --- BUILD HTML TABLE ---
 html = """
 <style>
     table {
@@ -101,21 +127,19 @@ html = """
 <table>
 """
 
-# --- HEADERS ---
-dates_sorted = sorted(df_pivot.columns)
 html += "<tr><th class='label'>Category</th>"
 for d in dates_sorted:
     html += f"<th>{d.strftime('%b %Y')}</th>"
 html += "</tr>"
 
-# --- ROWS ---
-for section, items in section_map.items():
-    html += f"<tr><td class='section' colspan='{len(dates_sorted) + 1}'>{section}</td></tr>"
-    for label in items:
-        html += f"<tr><td class='label'>{label}</td>"
+for row in row_template:
+    if row['type'] == 'title':
+        html += f"<tr><td class='section' colspan='{len(dates_sorted) + 1}'>{row['label']}</td></tr>"
+    elif row['type'] == 'data':
+        html += f"<tr><td class='label'>{row['label']}</td>"
         for d in dates_sorted:
             try:
-                val = df_pivot.loc[label, d]
+                val = df_pivot.loc[row['label'], d]
                 display_val = f"{int(round(val)):,}"
             except:
                 display_val = "–"
