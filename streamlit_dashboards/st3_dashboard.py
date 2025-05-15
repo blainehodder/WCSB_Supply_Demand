@@ -7,16 +7,22 @@ ST3_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/mai
 
 # --- LOAD DATA ---
 @st.cache_data
+
 def load_data():
-    df = pd.read_csv(ST3_URL)
+    df = pd.read_csv(ST3_URL, header=None)
+
+    df.columns = [
+        "Year", "Month", "Date", "Label", "Name", "Unused1", "Type", "Value"
+    ]
+
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    
-    # DEBUG OUTPUT
+    df['Value'] = pd.to_numeric(df['Value'], errors='coerce')
+
     st.write("✅ Loaded rows:", len(df))
     st.dataframe(df.head())
-    
-    return df
 
+    return df
+    
 df = load_data()
 
 # --- FILTER TO LAST 24 MONTHS BY DEFAULT ---
