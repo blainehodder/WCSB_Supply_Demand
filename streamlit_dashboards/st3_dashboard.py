@@ -57,7 +57,7 @@ row_template = [
     {"type": "title", "label": "Production"},
     {"type": "data", "label": "Crude Oil Light"},
     {"type": "data", "label": "Crude Oil Medium"},
-    {"type": "data", "label": "Crude Oil Ultra Heavy"},
+    {"type": "data", "label": "Crude Oil Ultra-Heavy"},
     {"type": "data", "label": "Total Crude Oil Production"},
     {"type": "data", "label": "Condensate Production"},
 
