@@ -76,7 +76,7 @@ row_template = [
     {"type": "title", "label": "Oil Sands Production"},
     {"type": "title", "label": "Nonupgraded"},
     {"type": "data", "label": "In Situ Production"},
-    {"type": "expander", "label": "In Situ Production Detail by Project"},  # placeholder
+    {"type": "expander", "label": "In Situ Production Detail by Project"},
     {"type": "data", "label": "Mined Production"},
     {"type": "data", "label": "Sent for Further Processing"},
     {"type": "data", "label": "Nonupgraded Total"},
@@ -166,6 +166,11 @@ st.markdown(html, unsafe_allow_html=True)
 with st.expander("In Situ Production Detail by Project"):
 
     st53 = pd.read_csv(ST53_URL)
+    st53 = st53.rename(columns={
+        "Bitumen Production": "BitumenVolume",
+        "Scheme Name": "ProjectName"
+    })
+
     st53['Date'] = pd.to_datetime(st53['Date'], errors='coerce')
     st53['BitumenVolume'] = pd.to_numeric(st53['BitumenVolume'], errors='coerce')
     st53 = st53.dropna(subset=["ProjectName", "Date", "BitumenVolume"])
@@ -213,16 +218,4 @@ with st.expander("In Situ Production Detail by Project"):
 
     for project, row in pivot.iterrows():
         html += f"<tr><td class='label'>{project}</td>"
-        for val in row:
-            try:
-                html += f"<td>{int(round(val)):,}</td>"
-            except:
-                html += "<td>–</td>"
-        html += "</tr>"
-
-    html += "</table>"
-    st.markdown(html, unsafe_allow_html=True)
-
-# --- FOOTER ---
-st.markdown("---")
-st.caption("Built by Blaine Hodder | Data via Alberta Energy Regulator")
+        for val
