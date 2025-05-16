@@ -61,51 +61,6 @@ if convert_to_barrels:
 df_pivot = df_filtered.pivot(index="Label", columns="Date", values="Value").fillna(0)
 dates_sorted = sorted(df_pivot.columns)
 
-# --- TEMPLATE ---
-row_template = [
-    {"type": "title", "label": "SUPPLY"},
-    {"type": "data", "label": "Opening Inventory"},
-    {"type": "title", "label": "Production"},
-    {"type": "title", "label": "Crude Oil Production"},
-    {"type": "data", "label": "Crude Oil Light"},
-    {"type": "data", "label": "Crude Oil Medium"},
-    {"type": "data", "label": "Crude Oil Heavy"},
-    {"type": "data", "label": "Crude Oil Ultra-Heavy"},
-    {"type": "data", "label": "Total Crude Oil Production"},
-    {"type": "data", "label": "Condensate Production"},
-    {"type": "title", "label": "Oil Sands Production"},
-    {"type": "title", "label": "Nonupgraded"},
-    {"type": "data", "label": "In Situ Production"},
-    {"type": "expander", "label": "In Situ Production Detail by Project"},
-    {"type": "data", "label": "Mined Production"},
-    {"type": "data", "label": "Sent for Further Processing"},
-    {"type": "data", "label": "Nonupgraded Total"},
-    {"type": "data", "label": "Upgraded Production"},
-    {"type": "data", "label": "Total Oil Sands Production"},
-    {"type": "data", "label": "Total Production"},
-    {"type": "title", "label": "Receipts"},
-    {"type": "data", "label": "Pentanes Plus  - Plant/Gathering Process"},
-    {"type": "data", "label": "Pentanes Plus  - Fractionation Yield"},
-    {"type": "data", "label": "Skim Oil Recovered"},
-    {"type": "data", "label": "Waste Plant Receipts"},
-    {"type": "data", "label": "Other Alberta Receipts"},
-    {"type": "data", "label": "Butanes reported as Crude Oil or Equivalent"},
-    {"type": "data", "label": "NGL reported as Crude Oil or Equivalent"},
-    {"type": "title", "label": "Imports"},
-    {"type": "data", "label": "Pentanes Plus"},
-    {"type": "data", "label": "Condensates"},
-    {"type": "data", "label": "Crude Oil"},
-    {"type": "data", "label": "Synthetic Crude Oil"},
-    {"type": "data", "label": "Total Imports"},
-    {"type": "data", "label": "Total Receipts"},
-    {"type": "data", "label": "Flare or Waste"},
-    {"type": "data", "label": "Fuel"},
-    {"type": "data", "label": "Shrinkage"},
-    {"type": "data", "label": "Closing Inventory"},
-    {"type": "data", "label": "Adjustments"},
-    {"type": "data", "label": "TOTAL OIL & EQUIVALENT SUPPLY"},
-]
-
 # --- RENDER MAIN TABLE ---
 st.title("WCSB Oil Supply & Disposition Summary")
 st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')} | Units: {unit_toggle}**")
@@ -145,7 +100,21 @@ for d in dates_sorted:
     html += f"<th>{d.strftime('%b %Y')}</th>"
 html += "</tr>"
 
-for row in row_template:
+for row in [
+    {"type": "title", "label": "SUPPLY"},
+    {"type": "data", "label": "Opening Inventory"},
+    {"type": "title", "label": "Production"},
+    {"type": "title", "label": "Crude Oil Production"},
+    {"type": "data", "label": "Crude Oil Light"},
+    {"type": "data", "label": "Crude Oil Medium"},
+    {"type": "data", "label": "Crude Oil Heavy"},
+    {"type": "data", "label": "Crude Oil Ultra-Heavy"},
+    {"type": "data", "label": "Total Crude Oil Production"},
+    {"type": "data", "label": "Condensate Production"},
+    {"type": "title", "label": "Oil Sands Production"},
+    {"type": "title", "label": "Nonupgraded"},
+    {"type": "data", "label": "In Situ Production"}]:
+
     if row['type'] == 'title':
         html += f"<tr><td class='section' colspan='{len(dates_sorted) + 1}'>{row['label']}</td></tr>"
     elif row['type'] == 'data':
@@ -167,18 +136,20 @@ with st.expander("In Situ Production Detail by Project"):
     st53 = pd.read_csv(ST53_URL)
     st53 = st53.rename(columns={
         "Bitumen Production": "BitumenVolume",
-        "Scheme Name": "ProjectName"
+        "Scheme Name": "Scheme",
+        "Operator": "Operator"
     })
     st53['Date'] = pd.to_datetime(st53['Date'], errors='coerce')
     st53['BitumenVolume'] = pd.to_numeric(st53['BitumenVolume'], errors='coerce')
-    st53 = st53.dropna(subset=["ProjectName", "Date", "BitumenVolume"])
-
+    st53 = st53.dropna(subset=["Operator", "Scheme", "Date", "BitumenVolume"])
+    st53['Label'] = st53['Operator'].str.strip() + " – " + st53['Scheme'].str.strip()
     st53_filtered = st53[(st53['Date'] >= date_range[0]) & (st53['Date'] <= date_range[1])].copy()
+
     if convert_to_barrels:
         st53_filtered['BitumenVolume'] *= BARREL_CONVERSION
 
     pivot = st53_filtered.pivot_table(
-        index="ProjectName",
+        index="Label",
         columns="Date",
         values="BitumenVolume",
         aggfunc="sum",
