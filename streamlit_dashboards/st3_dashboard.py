@@ -4,11 +4,12 @@ import calendar
 
 # --- CONFIG ---
 ST3_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/main/clean_data/st3/st3_cleaned.csv"
+ST53_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/main/clean_data/st53/st53_cleaned.csv"
 BARREL_CONVERSION = 6.29287
 
-# --- LOAD DATA ---
+# --- LOAD ST3 ---
 @st.cache_data
-def load_data():
+def load_st3():
     df = pd.read_csv(ST3_URL, header=None)
 
     if df.shape[1] == 9:
@@ -17,7 +18,7 @@ def load_data():
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Type", "Value"]
     elif df.shape[1] == 7:
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Value"]
-        df["Type"] = "flow"  # Assume flow if type is missing
+        df["Type"] = "flow"
     else:
         st.error(f"Unexpected number of columns: {df.shape[1]}")
         st.stop()
@@ -28,7 +29,7 @@ def load_data():
 
     return df
 
-df = load_data()
+df = load_st3()
 
 # --- UNIT TOGGLE ---
 unit_toggle = st.radio("Display Units", ["m³/day", "bbl/day"])
@@ -52,10 +53,8 @@ mask = (df['Date'] >= date_range[0]) & (df['Date'] <= date_range[1])
 df_filtered = df[mask].copy()
 df_filtered['Days'] = df_filtered['Date'].apply(lambda d: calendar.monthrange(d.year, d.month)[1])
 
-# Normalize flow values to daily, stock remains untouched
 is_flow = df_filtered['Type'] == "flow"
 df_filtered.loc[is_flow, 'Value'] = df_filtered.loc[is_flow, 'Value'] / df_filtered.loc[is_flow, 'Days']
-
 if convert_to_barrels:
     df_filtered.loc[is_flow, 'Value'] *= BARREL_CONVERSION
 
@@ -77,6 +76,7 @@ row_template = [
     {"type": "title", "label": "Oil Sands Production"},
     {"type": "title", "label": "Nonupgraded"},
     {"type": "data", "label": "In Situ Production"},
+    {"type": "expander", "label": "In Situ Production Detail by Project"},  # placeholder
     {"type": "data", "label": "Mined Production"},
     {"type": "data", "label": "Sent for Further Processing"},
     {"type": "data", "label": "Nonupgraded Total"},
@@ -106,7 +106,7 @@ row_template = [
     {"type": "data", "label": "TOTAL OIL & EQUIVALENT SUPPLY"},
 ]
 
-# --- RENDER TABLE ---
+# --- RENDER MAIN TABLE ---
 st.title("WCSB Oil Supply & Disposition Summary")
 st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')} | Units: {unit_toggle}**")
 
@@ -161,6 +161,67 @@ for row in row_template:
 
 html += "</table>"
 st.markdown(html, unsafe_allow_html=True)
+
+# --- EXPANDER: ST53 In Situ Breakdown ---
+with st.expander("In Situ Production Detail by Project"):
+
+    st53 = pd.read_csv(ST53_URL)
+    st53['Date'] = pd.to_datetime(st53['Date'], errors='coerce')
+    st53['BitumenVolume'] = pd.to_numeric(st53['BitumenVolume'], errors='coerce')
+    st53 = st53.dropna(subset=["ProjectName", "Date", "BitumenVolume"])
+
+    st53_filtered = st53[(st53['Date'] >= date_range[0]) & (st53['Date'] <= date_range[1])].copy()
+
+    if convert_to_barrels:
+        st53_filtered['BitumenVolume'] *= BARREL_CONVERSION
+
+    pivot = st53_filtered.pivot_table(
+        index="ProjectName",
+        columns="Date",
+        values="BitumenVolume",
+        aggfunc="sum",
+        fill_value=0
+    )
+
+    pivot['SortMetric'] = pivot[[col for col in pivot.columns if col.year == 2024]].mean(axis=1)
+    pivot = pivot.sort_values(by='SortMetric', ascending=False).drop(columns='SortMetric')
+
+    html = """
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            border: 1px solid #dddddd;
+            padding: 4px;
+            text-align: right;
+        }
+        th {
+            background-color: #f7f7f7;
+            position: sticky;
+            top: 0;
+        }
+        .label {
+            text-align: left;
+        }
+    </style>
+    <table>
+    <tr><th class='label'>Project</th>
+    """ + "".join(f"<th>{d.strftime('%b %Y')}</th>" for d in sorted(pivot.columns)) + "</tr>"
+
+    for project, row in pivot.iterrows():
+        html += f"<tr><td class='label'>{project}</td>"
+        for val in row:
+            try:
+                html += f"<td>{int(round(val)):,}</td>"
+            except:
+                html += "<td>–</td>"
+        html += "</tr>"
+
+    html += "</table>"
+    st.markdown(html, unsafe_allow_html=True)
 
 # --- FOOTER ---
 st.markdown("---")
