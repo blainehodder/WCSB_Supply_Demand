@@ -11,7 +11,6 @@ BARREL_CONVERSION = 6.29287
 @st.cache_data
 def load_st3():
     df = pd.read_csv(ST3_URL, header=None)
-
     if df.shape[1] == 9:
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Unused2", "Type", "Value"]
     elif df.shape[1] == 8:
@@ -26,7 +25,6 @@ def load_st3():
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     df['Value'] = pd.to_numeric(df['Value'], errors='coerce')
     df['Type'] = df['Type'].fillna("flow").str.lower()
-
     return df
 
 df = load_st3()
@@ -58,11 +56,10 @@ df_filtered.loc[is_flow, 'Value'] = df_filtered.loc[is_flow, 'Value'] / df_filte
 if convert_to_barrels:
     df_filtered.loc[is_flow, 'Value'] *= BARREL_CONVERSION
 
-# --- Pivot ST3 ---
 df_pivot = df_filtered.pivot(index="Label", columns="Date", values="Value").fillna(0)
 dates_sorted = sorted(df_pivot.columns)
 
-# --- RENDER MAIN TABLE ---
+# --- RENDER MAIN TABLE HEADER ---
 st.title("WCSB Oil Supply & Disposition Summary")
 st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')} | Units: {unit_toggle}**")
 
@@ -101,7 +98,8 @@ for d in dates_sorted:
     html += f"<th>{d.strftime('%b %Y')}</th>"
 html += "</tr>"
 
-for row in [
+# --- PARTIAL TABLE (top) ---
+main_rows_top = [
     {"type": "title", "label": "SUPPLY"},
     {"type": "data", "label": "Opening Inventory"},
     {"type": "title", "label": "Production"},
@@ -114,35 +112,30 @@ for row in [
     {"type": "data", "label": "Condensate Production"},
     {"type": "title", "label": "Oil Sands Production"},
     {"type": "title", "label": "Nonupgraded"},
-    {"type": "data", "label": "In Situ Production"}]:
+    {"type": "data", "label": "In Situ Production"},
+]
 
+for row in main_rows_top:
     if row['type'] == 'title':
         html += f"<tr><td class='section' colspan='{len(dates_sorted) + 1}'>{row['label']}</td></tr>"
-    elif row['type'] == 'data':
+    else:
         html += f"<tr><td class='label'>{row['label']}</td>"
         for d in dates_sorted:
-            try:
-                val = df_pivot.loc[row['label'], d]
-                display_val = f"{int(round(val)):,}"
-            except:
-                display_val = "–"
+            val = df_pivot.loc[row['label'], d] if row['label'] in df_pivot.index else 0
+            display_val = f"{int(round(val)):,}" if val else "–"
             html += f"<td>{display_val}</td>"
         html += "</tr>"
 
 html += "</table>"
 st.markdown(html, unsafe_allow_html=True)
 
-# --- EXPANDER: ST53 In Situ Breakdown ---
-with st.expander("In Situ Production Detail by Operator", expanded=False):
+# --- EXPANDER: ST53 In Situ Detail ---
+with st.expander("In Situ Production Detail by Operator"):
     st53 = pd.read_csv(ST53_URL)
-    st53 = st53.rename(columns={
-        "Bitumen Production": "BitumenVolume",
-        "Scheme Name": "Scheme",
-        "Operator": "Operator"
-    })
+    st53 = st53.rename(columns={"Bitumen Production": "BitumenVolume", "Scheme Name": "Scheme", "Operator": "Operator"})
     st53['Date'] = pd.to_datetime(st53['Date'], errors='coerce')
     st53['BitumenVolume'] = pd.to_numeric(st53['BitumenVolume'], errors='coerce')
-    st53 = st53.dropna(subset=["Operator", "Scheme", "Date", "BitumenVolume"])
+    st53.dropna(subset=["Operator", "Scheme", "Date", "BitumenVolume"], inplace=True)
 
     st53_filtered = st53[(st53['Date'] >= date_range[0]) & (st53['Date'] <= date_range[1])].copy()
     if convert_to_barrels:
@@ -158,46 +151,25 @@ with st.expander("In Situ Production Detail by Operator", expanded=False):
         fill_value=0
     )
     pivot['Operator'] = pivot.index.str.split(" – ").str[0]
-    operator_avg = pivot[[col for col in pivot.columns if isinstance(col, pd.Timestamp) and col.year == 2024]].mean(axis=1)
-    pivot['SortMetric'] = operator_avg
+    date_cols = sorted([col for col in pivot.columns if isinstance(col, pd.Timestamp)])
+    pivot['SortMetric'] = pivot[date_cols].mean(axis=1)
     pivot = pivot.sort_values(by='SortMetric', ascending=False).drop(columns='SortMetric')
 
     html = """
     <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        th, td {
-            border: 1px solid #dddddd;
-            padding: 4px;
-            text-align: right;
-        }
-        th {
-            background-color: #f7f7f7;
-            position: sticky;
-            top: 0;
-        }
-        .label {
-            text-align: left;
-        }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #dddddd; padding: 4px; text-align: right; }
+        th { background-color: #f7f7f7; position: sticky; top: 0; }
+        .label { text-align: left; }
     </style>
     <table>
-    <tr><th class='label'>Operator – Scheme</th>
-    """ + "".join(f"<th>{d.strftime('%b %Y')}</th>" for d in sorted(pivot.columns) if isinstance(d, pd.Timestamp)) + "</tr>"
+    <tr><th class='label'>Operator – Scheme</th>""" + "".join(f"<th>{d.strftime('%b %Y')}</th>" for d in date_cols) + "</tr>"
 
     for idx, row in pivot.iterrows():
         html += f"<tr><td class='label'>{idx}</td>"
-        for d in sorted(pivot.columns):
-            if not isinstance(d, pd.Timestamp):
-                continue
-            try:
-                val = row[d]
-                display_val = f"{int(round(val)):,}"
-            except:
-                display_val = "–"
-            html += f"<td>{display_val}</td>"
+        for d in date_cols:
+            val = row[d]
+            html += f"<td>{int(round(val)):,}</td>" if val else "<td>–</td>"
         html += "</tr>"
 
     html += "</table>"
@@ -205,7 +177,7 @@ with st.expander("In Situ Production Detail by Operator", expanded=False):
 
 # --- CONTINUE MAIN TABLE ---
 html = "<table>"
-for row in [
+main_rows_bottom = [
     {"type": "data", "label": "Mined Production"},
     {"type": "data", "label": "Sent for Further Processing"},
     {"type": "data", "label": "Nonupgraded Total"},
@@ -232,18 +204,17 @@ for row in [
     {"type": "data", "label": "Shrinkage"},
     {"type": "data", "label": "Closing Inventory"},
     {"type": "data", "label": "Adjustments"},
-    {"type": "data", "label": "TOTAL OIL & EQUIVALENT SUPPLY"}
-]:
+    {"type": "data", "label": "TOTAL OIL & EQUIVALENT SUPPLY"},
+]
+
+for row in main_rows_bottom:
     if row['type'] == 'title':
         html += f"<tr><td class='section' colspan='{len(dates_sorted) + 1}'>{row['label']}</td></tr>"
-    elif row['type'] == 'data':
+    else:
         html += f"<tr><td class='label'>{row['label']}</td>"
         for d in dates_sorted:
-            try:
-                val = df_pivot.loc[row['label'], d]
-                display_val = f"{int(round(val)):,}"
-            except:
-                display_val = "–"
+            val = df_pivot.loc[row['label'], d] if row['label'] in df_pivot.index else 0
+            display_val = f"{int(round(val)):,}" if val else "–"
             html += f"<td>{display_val}</td>"
         html += "</tr>"
 
