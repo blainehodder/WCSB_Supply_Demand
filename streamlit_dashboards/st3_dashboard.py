@@ -17,12 +17,15 @@ def load_data():
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Type", "Value"]
     elif df.shape[1] == 7:
         df.columns = ["Year", "Month", "Date", "Label", "Name", "Unused1", "Value"]
+        df["Type"] = "flow"  # Assume flow if type is missing
     else:
         st.error(f"Unexpected number of columns: {df.shape[1]}")
         st.stop()
 
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     df['Value'] = pd.to_numeric(df['Value'], errors='coerce')
+    df['Type'] = df['Type'].fillna("flow").str.lower()
+
     return df
 
 df = load_data()
@@ -44,15 +47,17 @@ date_range = st.slider(
     format="%b %Y"
 )
 
-# --- FILTER & NORMALIZE TO DAILY ---
+# --- FILTER & NORMALIZE FLOW VALUES ONLY ---
 mask = (df['Date'] >= date_range[0]) & (df['Date'] <= date_range[1])
 df_filtered = df[mask].copy()
-
 df_filtered['Days'] = df_filtered['Date'].apply(lambda d: calendar.monthrange(d.year, d.month)[1])
-df_filtered['Value'] = df_filtered['Value'] / df_filtered['Days']
+
+# Normalize flow values to daily, stock remains untouched
+is_flow = df_filtered['Type'] == "flow"
+df_filtered.loc[is_flow, 'Value'] = df_filtered.loc[is_flow, 'Value'] / df_filtered.loc[is_flow, 'Days']
 
 if convert_to_barrels:
-    df_filtered['Value'] *= BARREL_CONVERSION
+    df_filtered.loc[is_flow, 'Value'] *= BARREL_CONVERSION
 
 df_pivot = df_filtered.pivot(index="Label", columns="Date", values="Value").fillna(0)
 dates_sorted = sorted(df_pivot.columns)
