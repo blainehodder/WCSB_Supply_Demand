@@ -164,19 +164,16 @@ st.markdown(html, unsafe_allow_html=True)
 
 # --- EXPANDER: ST53 In Situ Breakdown ---
 with st.expander("In Situ Production Detail by Project"):
-
     st53 = pd.read_csv(ST53_URL)
     st53 = st53.rename(columns={
         "Bitumen Production": "BitumenVolume",
         "Scheme Name": "ProjectName"
     })
-
     st53['Date'] = pd.to_datetime(st53['Date'], errors='coerce')
     st53['BitumenVolume'] = pd.to_numeric(st53['BitumenVolume'], errors='coerce')
     st53 = st53.dropna(subset=["ProjectName", "Date", "BitumenVolume"])
 
     st53_filtered = st53[(st53['Date'] >= date_range[0]) & (st53['Date'] <= date_range[1])].copy()
-
     if convert_to_barrels:
         st53_filtered['BitumenVolume'] *= BARREL_CONVERSION
 
@@ -223,4 +220,11 @@ with st.expander("In Situ Production Detail by Project"):
                 html += f"<td>{int(round(val)):,}</td>"
             except:
                 html += "<td>–</td>"
-        html +=
+        html += "</tr>"
+
+    html += "</table>"
+    st.markdown(html, unsafe_allow_html=True)
+
+# --- FOOTER ---
+st.markdown("---")
+st.caption("Built by Blaine Hodder | Data via Alberta Energy Regulator")
