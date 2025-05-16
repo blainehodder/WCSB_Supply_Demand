@@ -218,4 +218,9 @@ with st.expander("In Situ Production Detail by Project"):
 
     for project, row in pivot.iterrows():
         html += f"<tr><td class='label'>{project}</td>"
-        for val
+        for val in row:
+            try:
+                html += f"<td>{int(round(val)):,}</td>"
+            except:
+                html += "<td>–</td>"
+        html +=
