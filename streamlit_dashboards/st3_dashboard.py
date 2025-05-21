@@ -88,7 +88,7 @@ with st.sidebar:
         min_value=st3["Date"].min().to_pydatetime(),
         max_value=st3["Date"].max().to_pydatetime(),
         value=(default_start.to_pydatetime(), default_end.to_pydatetime()),
-        format="%Y-%m"
+        format="YYYY-MM"
     )
 
 
