@@ -78,8 +78,8 @@ row_template = [
     {"type": "data", "label": "Condensate Production"},
     {"type": "title", "label": "Oil Sands Production"},
     {"type": "title", "label": "Nonupgraded"},
-    {"type": "data", "label": "In Situ Production"},  # ST53 Expander will go here
-    {"type": "expand", "label": "ST53_EXPANDER"},
+    {"type": "data", "label": "In Situ Production"},
+    {"type": "expander"},
     {"type": "data", "label": "Mined Production"},
     {"type": "data", "label": "Sent for Further Processing"},
     {"type": "data", "label": "Nonupgraded Total"},
@@ -121,12 +121,11 @@ row_template = [
     {"type": "data", "label": "TOTAL OIL & EQUIVALENT DISPOSITION"},
 ]
 
-# --- MAIN RENDER ---
+# --- RENDER ---
 st.title("WCSB Oil Supply & Disposition Summary")
 st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')} | Units: {unit_toggle}**")
 
-html = """
-<style>
+html_top = """<style>
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { border: 1px solid #ddd; padding: 6px; text-align: right; }
 th { background-color: #f0f0f0; position: sticky; top: 0; z-index: 1; }
@@ -135,24 +134,27 @@ th { background-color: #f0f0f0; position: sticky; top: 0; z-index: 1; }
 </style>
 <table>
 """
-html += "<tr><th class='label'>Category</th>" + "".join(
+html_top += "<tr><th class='label'>Category</th>" + "".join(
     f"<th>{d.strftime('%b %Y')}</th>" for d in dates_sorted if isinstance(d, pd.Timestamp)
 ) + "</tr>"
 
+expander_inserted = False
+html_bottom = ""
 for row in row_template:
     if row["type"] == "title":
-        html += f"<tr><td class='section' colspan='{len(dates_sorted)+1}'>{row['label']}</td></tr>"
+        html_bottom += f"<tr><td class='section' colspan='{len(dates_sorted)+1}'>{row['label']}</td></tr>"
     elif row["type"] == "data":
-        html += f"<tr><td class='label'>{row['label']}</td>"
+        html_bottom += f"<tr><td class='label'>{row['label']}</td>"
         for d in dates_sorted:
             try:
                 val = st3_pivot.loc[row["label"], d]
-                html += f"<td>{int(round(val)):,}</td>"
+                html_bottom += f"<td>{int(round(val)):,}</td>"
             except:
-                html += "<td>–</td>"
-        html += "</tr>"
-    elif row["type"] == "expand":
-        html += "</table>"
+                html_bottom += "<td>–</td>"
+        html_bottom += "</tr>"
+    elif row["type"] == "expander" and not expander_inserted:
+        html_top += html_bottom + "</table>"
+        st.markdown(html_top, unsafe_allow_html=True)
 
         with st.expander("In Situ Breakdown (ST53)", expanded=False):
             st53_mask = (st53["Date"] >= date_range[0]) & (st53["Date"] <= date_range[1])
@@ -174,23 +176,24 @@ for row in row_template:
                 f"<th>{d.strftime('%b %Y')}</th>" for d in sorted(pivot.columns) if isinstance(d, pd.Timestamp)
             ) + "</tr>"
 
-            for label, row_ in pivot.iterrows():
+            for label, row in pivot.iterrows():
                 sub_html += f"<tr><td class='label'>{label}</td>"
                 for d in sorted(pivot.columns):
-                    val = row_[d]
+                    val = row[d]
                     sub_html += f"<td>{int(round(val)):,}</td>"
                 sub_html += "</tr>"
 
             sub_html += "</table>"
             st.markdown(sub_html, unsafe_allow_html=True)
 
-        html += "<table>"
-        html += "<tr><th class='label'>Category</th>" + "".join(
+        html_top = "<table><tr><th class='label'>Category</th>" + "".join(
             f"<th>{d.strftime('%b %Y')}</th>" for d in dates_sorted if isinstance(d, pd.Timestamp)
         ) + "</tr>"
+        html_bottom = ""
+        expander_inserted = True
 
-html += "</table>"
-st.markdown(html, unsafe_allow_html=True)
+html_final = html_top + html_bottom + "</table>"
+st.markdown(html_final, unsafe_allow_html=True)
 
 # --- FOOTER ---
 st.markdown("---")
