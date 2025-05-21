@@ -207,9 +207,14 @@ for row in row_template:
             pivot["__avg__"] = pivot.mean(axis=1)
             pivot = pivot.sort_values("__avg__", ascending=False).drop(columns="__avg__")
 
-            sub_html = "<table><tr><th class='label'>Operator – Scheme</th>" + "".join(
+            colgroup_html = "<colgroup><col style='width: 20%;'>" + "".join(
+                "<col style='width: 6.66%;'>" for _ in sorted(pivot.columns)
+            ) + "</colgroup>"
+            
+            sub_html = "<table>" + colgroup_html + "<tr><th class='label'>Operator – Scheme</th>" + "".join(
                 f"<th>{d.strftime('%b %Y')}</th>" for d in sorted(pivot.columns)
             ) + "</tr>"
+
             for label, row in pivot.iterrows():
                 sub_html += f"<tr><td class='label'>{label}</td>"
                 for d in sorted(pivot.columns):
