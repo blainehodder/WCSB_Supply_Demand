@@ -1,11 +1,51 @@
 import streamlit as st
 import pandas as pd
 import calendar
+import platform
 
 # --- CONFIG ---
 ST3_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/main/clean_data/st3/st3_cleaned.csv"
 ST53_URL = "https://raw.githubusercontent.com/blainehodder/WCSB_Supply_Demand/main/clean_data/st53/st53_cleaned.csv"
 BARREL_CONVERSION = 6.29287
+
+# --- CUSTOM THEME ---
+st.markdown("""
+    <style>
+        body {
+            background-color: #f9fafb;
+            color: #1f2937;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .css-1d391kg, .css-1kyxreq {
+            padding-top: 1rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 6px;
+            text-align: center;
+        }
+        th {
+            background-color: #f3f4f6;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .section {
+            background-color: #dbeafe;
+            font-weight: bold;
+            text-align: left;
+        }
+        .label {
+            text-align: left;
+            font-weight: 500;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- LOAD DATA ---
 @st.cache_data
@@ -31,40 +71,49 @@ st3 = load_st3()
 st53 = load_st53()
 
 # --- SIDEBAR ---
-unit_toggle = st.radio("Display Units", ["m³/day", "bbl/day"])
-convert_to_barrels = unit_toggle == "bbl/day"
+with st.sidebar:
+    st.header("⚙️ Controls")
+    unit_toggle = st.radio("Display Units", ["m³/day", "bbl/day"])
+    convert_to_barrels = unit_toggle == "bbl/day"
 
-max_date = st3["Date"].max()
-default_start = max_date - pd.DateOffset(months=23)
-default_end = max_date
+    st.markdown("---")
+    st.header("🗓 Date Range")
+    max_date = st3["Date"].max()
+    default_start = max_date - pd.DateOffset(months=23)
+    default_end = max_date
 
-date_range = st.slider(
-    "Select date range",
-    min_value=st3["Date"].min().to_pydatetime(),
-    max_value=st3["Date"].max().to_pydatetime(),
-    value=(default_start.to_pydatetime(), default_end.to_pydatetime()),
-    format="%b %Y"
-)
+    # Detect browser-safe date format
+    browser_safe_fmt = "%b %Y" if platform.system() != "Windows" else "%Y-%m"
+    date_range = st.slider(
+        "Select date range",
+        min_value=st3["Date"].min().to_pydatetime(),
+        max_value=st3["Date"].max().to_pydatetime(),
+        value=(default_start.to_pydatetime(), default_end.to_pydatetime()),
+        format=browser_safe_fmt
+    )
 
-# --- FILTER ST3 & NORMALIZE ---
+# --- SUMMARY BLOCK ---
+st.markdown("""
+### 📌 Market Context Summary
+*This section will be manually populated to summarize recent market events, outages, apportionment notes, and strategic updates.*
+
+- **Maintenance Season:** Placeholder for scheduled upgrader outages
+- **Pipeline Apportionment:** Placeholder for Enbridge/CER apportionment notice
+- **Market Impact:** Placeholder for recent differentials or pricing pressures
+""")
+
+# --- MAIN DATA PROCESSING ---
 mask = (st3["Date"] >= date_range[0]) & (st3["Date"] <= date_range[1])
 st3_filtered = st3[mask].copy()
-
-# Normalize flows only
 is_flow = st3_filtered["Type"].str.lower().eq("flow")
 st3_filtered["Days"] = st3_filtered["Date"].apply(lambda d: calendar.monthrange(d.year, d.month)[1])
 st3_filtered.loc[is_flow, "Value"] = st3_filtered.loc[is_flow, "Value"] / st3_filtered.loc[is_flow, "Days"]
-
-# Convert if needed
 if convert_to_barrels:
     st3_filtered["Value"] *= BARREL_CONVERSION
     st53["Bitumen Production"] *= BARREL_CONVERSION
-
-# Pivot main table
 st3_pivot = st3_filtered.pivot(index="Label", columns="Date", values="Value").fillna(0)
 dates_sorted = sorted(st3_pivot.columns)
 
-# --- TEMPLATE ---
 row_template = [
     {"type": "title", "label": "SUPPLY"},
     {"type": "data", "label": "Opening Inventory"},
@@ -121,21 +170,8 @@ row_template = [
     {"type": "data", "label": "TOTAL OIL & EQUIVALENT DISPOSITION"},
 ]
 
-# --- RENDER ---
-st.title("WCSB Oil Supply & Disposition Summary")
-st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')} | Units: {unit_toggle}**")
-
-html_top = """<style>
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { border: 1px solid #ddd; padding: 6px; text-align: right; }
-th { background-color: #f0f0f0; position: sticky; top: 0; z-index: 1; }
-.section { background-color: #dce6f1; font-weight: bold; text-align: left; }
-.label { text-align: left; }
-</style>
-<table>
-"""
-html_top += "<tr><th class='label'>Category</th>" + "".join(
-    f"<th>{d.strftime('%b %Y')}</th>" for d in dates_sorted if isinstance(d, pd.Timestamp)
+html_top = "<table><tr><th class='label'>Category</th>" + "".join(
+    f"<th>{d.strftime('%b %Y')}</th>" for d in dates_sorted
 ) + "</tr>"
 
 expander_inserted = False
@@ -168,26 +204,23 @@ for row in row_template:
                 aggfunc="sum",
                 fill_value=0
             )
-
             pivot["__avg__"] = pivot.mean(axis=1)
             pivot = pivot.sort_values("__avg__", ascending=False).drop(columns="__avg__")
 
             sub_html = "<table><tr><th class='label'>Operator – Scheme</th>" + "".join(
-                f"<th>{d.strftime('%b %Y')}</th>" for d in sorted(pivot.columns) if isinstance(d, pd.Timestamp)
+                f"<th>{d.strftime('%b %Y')}</th>" for d in sorted(pivot.columns)
             ) + "</tr>"
-
             for label, row in pivot.iterrows():
                 sub_html += f"<tr><td class='label'>{label}</td>"
                 for d in sorted(pivot.columns):
                     val = row[d]
                     sub_html += f"<td>{int(round(val)):,}</td>"
                 sub_html += "</tr>"
-
             sub_html += "</table>"
             st.markdown(sub_html, unsafe_allow_html=True)
 
         html_top = "<table><tr><th class='label'>Category</th>" + "".join(
-            f"<th>{d.strftime('%b %Y')}</th>" for d in dates_sorted if isinstance(d, pd.Timestamp)
+            f"<th>{d.strftime('%b %Y')}</th>" for d in dates_sorted
         ) + "</tr>"
         html_bottom = ""
         expander_inserted = True
