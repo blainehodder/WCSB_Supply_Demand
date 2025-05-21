@@ -83,14 +83,14 @@ with st.sidebar:
     default_end = max_date
 
     # Detect browser-safe date format
-    browser_safe_fmt = "%b %Y" if platform.system() != "Windows" else "%Y-%m"
     date_range = st.slider(
         "Select date range",
         min_value=st3["Date"].min().to_pydatetime(),
         max_value=st3["Date"].max().to_pydatetime(),
         value=(default_start.to_pydatetime(), default_end.to_pydatetime()),
-        format=browser_safe_fmt
+        format="%Y-%m"
     )
+
 
 # --- SUMMARY BLOCK ---
 st.markdown("""
