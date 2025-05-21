@@ -43,7 +43,7 @@ date_range = st.slider(
     min_value=st3["Date"].min().to_pydatetime(),
     max_value=st3["Date"].max().to_pydatetime(),
     value=(default_start.to_pydatetime(), default_end.to_pydatetime()),
-    format="LLL %Y"
+    format="%b %Y"
 )
 
 # --- FILTER ST3 & NORMALIZE ---
@@ -78,7 +78,8 @@ row_template = [
     {"type": "data", "label": "Condensate Production"},
     {"type": "title", "label": "Oil Sands Production"},
     {"type": "title", "label": "Nonupgraded"},
-    {"type": "data", "label": "In Situ Production"},
+    {"type": "data", "label": "In Situ Production"},  # ST53 Expander will go here
+    {"type": "expand", "label": "ST53_EXPANDER"},
     {"type": "data", "label": "Mined Production"},
     {"type": "data", "label": "Sent for Further Processing"},
     {"type": "data", "label": "Nonupgraded Total"},
@@ -120,7 +121,7 @@ row_template = [
     {"type": "data", "label": "TOTAL OIL & EQUIVALENT DISPOSITION"},
 ]
 
-# --- RENDER MAIN TABLE ---
+# --- MAIN RENDER ---
 st.title("WCSB Oil Supply & Disposition Summary")
 st.markdown(f"**Showing:** {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')} | Units: {unit_toggle}**")
 
@@ -150,43 +151,46 @@ for row in row_template:
             except:
                 html += "<td>–</td>"
         html += "</tr>"
+    elif row["type"] == "expand":
+        html += "</table>"
+
+        with st.expander("In Situ Breakdown (ST53)", expanded=False):
+            st53_mask = (st53["Date"] >= date_range[0]) & (st53["Date"] <= date_range[1])
+            st53_filtered = st53[st53_mask].copy()
+            st53_filtered["Label"] = st53_filtered["Operator"] + " – " + st53_filtered["Scheme Name"]
+
+            pivot = st53_filtered.pivot_table(
+                index="Label",
+                columns="Date",
+                values="Bitumen Production",
+                aggfunc="sum",
+                fill_value=0
+            )
+
+            pivot["__avg__"] = pivot.mean(axis=1)
+            pivot = pivot.sort_values("__avg__", ascending=False).drop(columns="__avg__")
+
+            sub_html = "<table><tr><th class='label'>Operator – Scheme</th>" + "".join(
+                f"<th>{d.strftime('%b %Y')}</th>" for d in sorted(pivot.columns) if isinstance(d, pd.Timestamp)
+            ) + "</tr>"
+
+            for label, row_ in pivot.iterrows():
+                sub_html += f"<tr><td class='label'>{label}</td>"
+                for d in sorted(pivot.columns):
+                    val = row_[d]
+                    sub_html += f"<td>{int(round(val)):,}</td>"
+                sub_html += "</tr>"
+
+            sub_html += "</table>"
+            st.markdown(sub_html, unsafe_allow_html=True)
+
+        html += "<table>"
+        html += "<tr><th class='label'>Category</th>" + "".join(
+            f"<th>{d.strftime('%b %Y')}</th>" for d in dates_sorted if isinstance(d, pd.Timestamp)
+        ) + "</tr>"
 
 html += "</table>"
 st.markdown(html, unsafe_allow_html=True)
-
-# --- ST53 EXPANDER ---
-with st.expander("In Situ Breakdown (ST53)", expanded=False):
-    st53_mask = (st53["Date"] >= date_range[0]) & (st53["Date"] <= date_range[1])
-    st53_filtered = st53[st53_mask].copy()
-
-    st53_filtered["Label"] = st53_filtered["Operator"] + " – " + st53_filtered["Scheme Name"]
-
-    pivot = st53_filtered.pivot_table(
-        index="Label",
-        columns="Date",
-        values="Bitumen Production",
-        aggfunc="sum",
-        fill_value=0
-    )
-
-    # Sort by latest average
-    pivot["__avg__"] = pivot.mean(axis=1)
-    pivot = pivot.sort_values("__avg__", ascending=False).drop(columns="__avg__")
-
-    # Build sub-table
-    sub_html = "<table><tr><th class='label'>Operator – Scheme</th>" + "".join(
-        f"<th>{d.strftime('%b %Y')}</th>" for d in sorted(pivot.columns) if isinstance(d, pd.Timestamp)
-    ) + "</tr>"
-
-    for label, row in pivot.iterrows():
-        sub_html += f"<tr><td class='label'>{label}</td>"
-        for d in sorted(pivot.columns):
-            val = row[d]
-            sub_html += f"<td>{int(round(val)):,}</td>"
-        sub_html += "</tr>"
-
-    sub_html += "</table>"
-    st.markdown(sub_html, unsafe_allow_html=True)
 
 # --- FOOTER ---
 st.markdown("---")
